@@ -1,0 +1,38 @@
+[package]
+name = "sol-program"
+version = "0.1.0"
+authors = ["Coin98 Labs"]
+license = "Apache-2.0"
+edition = "2021"
+
+[lib]
+name = "sol_program"
+crate-type = ["cdylib", "lib"]
+
+[features]
+cpi = ["no-entrypoint"]
+default = []
+devnet = []
+mainnet = []
+no-entrypoint = []
+no-idl = []
+
+[dependencies]
+anchor-lang = "~0.26.0"
+solana-program = "~1.14.16"
+mpl-token-metadata = { version="1.8.5", features = [ "no-entrypoint" ] }
+arrayref = "~0.3.6"
+num_enum = "~0.5.10"
+
+[dev-dependencies]
+arrayref = "~0.3.6"
+num_enum = "~0.5.10"
+solana-cli-config = "~1.14.16"
+solana-program-test = "~1.14.16"
+solana-sdk = "~1.14.16"
+tokio = "~1.14.1"
+# dependency fix
+proc-macro-crate = "~1.2.1"
+security-framework = "~2.5.0"
+time = "~0.3.15"
+zstd-sys = "~2.0.4+zstd.1.5.2"
