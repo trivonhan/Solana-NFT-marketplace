@@ -69,6 +69,11 @@ export interface ListNftToMarketplaceRequest {
   bump: number;
 }
 
+export interface BuyNftFromMarketplaceRequest {
+  amount: BN;
+  bump: number;
+}
+
 export class NftMarketplaceInstructionService {
 
   static createMetadataAccountInstruction(
@@ -270,6 +275,58 @@ export class NftMarketplaceInstructionService {
         programId: nftMarketplaceProgramId,
       }
     );
+  }
+
+  static buyNftInstruction(
+    buyer: PublicKey,
+    seller: PublicKey,
+    buyerNftAccount: PublicKey,
+    buyerTokenAccount: PublicKey,
+    sellerTokenAccount: PublicKey,
+    sellerTradeState: PublicKey,
+    mintNftAccount: PublicKey,
+    nftMarketPlaceAccount: PublicKey,
+    nftTokenAccount: PublicKey,
+    tokenMintAccount: PublicKey,
+    programAsSigner: PublicKey,
+    authority: PublicKey,
+    feeAccount: PublicKey,
+    tokenProgramId: PublicKey,
+    systemProgramId: PublicKey,
+    nftMarketplaceProgramId: PublicKey,
+    amount: BN,
+    bump: number,
+  ): TransactionInstruction {
+    const request: BuyNftFromMarketplaceRequest = {
+      amount,
+      bump,
+    };
+
+    const data = coder.instruction.encode("executeSale", request)
+
+    const keys: AccountMeta[] = [
+      <AccountMeta> { pubkey: buyer, isSigner: true, isWritable: false },
+      <AccountMeta> { pubkey: seller, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: buyerNftAccount, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: buyerTokenAccount, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: sellerTokenAccount, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: sellerTradeState, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: mintNftAccount, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: nftMarketPlaceAccount, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: nftTokenAccount, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: tokenMintAccount, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: programAsSigner, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: authority, isSigner: false, isWritable: false },
+      <AccountMeta> { pubkey: feeAccount, isSigner: false, isWritable: true },
+      <AccountMeta> { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+      <AccountMeta> { pubkey: systemProgramId, isSigner: false, isWritable: false },
+    ];
+    return new TransactionInstruction(
+      {
+        keys,
+        data,
+        programId: nftMarketplaceProgramId,
+      });
   }
 
 }

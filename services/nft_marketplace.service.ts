@@ -191,4 +191,55 @@ export class NftMarketplaceService {
 
   }
 
+  static async buyNft(
+    connection: Connection,
+    buyer: Keypair,
+    seller: PublicKey,
+    buyerNftAccount: PublicKey,
+    buyerTokenAccount: PublicKey,
+    sellerTokenAccount: PublicKey,
+    sellerTradeState: PublicKey,
+    mintNftAccount: PublicKey,
+    nftMarketPlaceAccount: PublicKey,
+    nftTokenAccount: PublicKey,
+    tokenMintAccount: PublicKey,
+    programAsSigner: PublicKey,
+    authority: PublicKey,
+    feeAccount: PublicKey,
+    tokenProgramId: PublicKey,
+    systemProgramId: PublicKey,
+    nftMarketplaceProgramId: PublicKey,
+    amount: BN,
+    bump: number,
+  ): Promise<[string, TransactionLog]> {
+    const transaction = new Transaction();
+
+    const buyNftFromMarketplaceInstruction = NftMarketplaceInstructionService.buyNftInstruction(
+      buyer.publicKey,
+      seller,
+      buyerNftAccount,
+      buyerTokenAccount,
+      sellerTokenAccount,
+      sellerTradeState,
+      mintNftAccount,
+      nftMarketPlaceAccount,
+      nftTokenAccount,
+      tokenMintAccount,
+      programAsSigner,
+      authority,
+      feeAccount,
+      tokenProgramId,
+      systemProgramId,
+      nftMarketplaceProgramId,
+      amount,
+      bump,
+    );
+
+    transaction.add(buyNftFromMarketplaceInstruction);
+
+    const txSign = await sendTransaction2(connection, transaction, [buyer])
+    return txSign;
+
+  }
+
 }

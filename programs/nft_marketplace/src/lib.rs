@@ -19,6 +19,7 @@ use anchor_lang::{
   },
 };
 use context::*;
+use error::ErrorCode;
 
 use mpl_token_metadata::{
   instruction as mpl_instruction,
@@ -30,14 +31,24 @@ use mpl_token_metadata::{
     }
 };
 
-use crate::external::spl_token::{
+use crate::{
+    external::spl_token::{
     ID as TOKEN_PROGRAM_ID,
-  };
-
+  },
+    external::anchor_spl_token::{
+        transfer_token,
+    },
+};
 declare_id!("H4Theeu9v5WwLSSUc9BTtCehCgw2ap6KxekeQkcbgBJz");
 
 #[derive(AnchorSerialize, AnchorDeserialize, Default)]
 pub struct ApproveTokenParams {
+    pub instruction: u8,
+    pub amount: u64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Default)]
+pub struct TransferTokenParams {
     pub instruction: u8,
     pub amount: u64,
 }
@@ -266,6 +277,84 @@ mod nft_marketplace {
         ]).expect("CPI failed");
 
         Ok(())
+    }
+
+    pub fn execute_sale(ctx: Context<ExecuteSaleContext>, amount: u64, _bump: u8) -> Result<()> {
+        let buyer = &ctx.accounts.buyer;
+        let seller = &ctx.accounts.seller;
+        let buyer_nft_account = &ctx.accounts.buyer_nft_account;
+        let buyer_token_account = &ctx.accounts.buyer_token_account;
+        let seller_token_account = &ctx.accounts.seller_token_account;
+        let seller_trade_state = &ctx.accounts.seller_trade_state;
+        let mint_nft_account = &ctx.accounts.mint_nft_account;
+        let nft_marketplace_account = &ctx.accounts.nft_marketplace_account;
+        let nft_token_account = &ctx.accounts.nft_token_account;
+        let token_mint_account = &ctx.accounts.token_mint_account;
+        let program_as_signer = &ctx.accounts.program_as_signer;
+        let authority = &ctx.accounts.authority;
+        let fee_account = &ctx.accounts.fee_account;
+        let token_program = &ctx.accounts.token_program;
+
+        require!(seller_trade_state.list_price == amount, ErrorCode::PriceNotCorrect);
+        require!(seller_trade_state.seller == *seller.to_account_info().key, ErrorCode::SellerNotCorrect);
+        require!(seller_trade_state.mint_nft_account == *mint_nft_account.to_account_info().key, ErrorCode::MintNFTAccountNotCorrect);
+        require!(seller_trade_state.nft_marketplace_account == *nft_marketplace_account.to_account_info().key, ErrorCode::NFTMarketplaceAccountNotCorrect);
+        require!(seller_trade_state.nft_token_account == *nft_token_account.to_account_info().key, ErrorCode::NFTTokenAccountNotCorrect);
+        require!(seller_trade_state.token_mint_account == *token_mint_account.to_account_info().key, ErrorCode::TokenMintAccountNotCorrect);
+
+        // let data = TransferTokenParams {
+        //     instruction: 3,
+        //     amount: 1,
+        // };
+
+        // let data = data.try_to_vec().unwrap();
+
+        // let accounts = vec![
+        //     AccountMeta::new(*nft_token_account.key, false),
+        //     AccountMeta::new(*buyer_nft_account.key, false),
+        //     AccountMeta::new(*program_as_signer.key, true),
+
+        // ];
+
+        // let instruction = Instruction {
+        //     program_id: *token_program.key,
+        //     accounts,
+        //     data,
+        // };
+
+        let seed : &[&[u8]] = &[
+            b"MARKETPLACE".as_ref(),
+            b"MARKETPLACE_SIGNER".as_ref(),
+            &[_bump]
+        ];
+
+        transfer_token(
+            &program_as_signer,
+            &nft_token_account,
+            &buyer_nft_account,
+            1,
+            &[seed],
+        ).expect("CPI failed");
+
+        transfer_token(
+            &buyer,
+            &buyer_token_account,
+            &seller_token_account,
+            amount,
+            &[]
+        ).expect("CPI failed");
+
+        // invoke_signed(&instruction, &[
+        //     nft_token_account.clone(),
+        //     buyer_nft_account.clone(),
+        //     program_as_signer.to_account_info().clone(),
+        //     token_program.clone(),
+        // ],
+        //     &[&seed],
+        // ).expect("CPI failed");
+
+        Ok(())
+
     }
 
 

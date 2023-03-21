@@ -49,17 +49,31 @@ describe("nft-collection", () => {
 
   // Delegate account
   let programAsSigner: anchor.web3.PublicKey;
-  let delegateBump: number;
+  let programAsSignerBump: number;
 
   // Sell - Buy account
   let sellerTradeState: anchor.web3.PublicKey;
   let sellerTradeStateBump: number;
+  let buyerNftATA: Account;
+  let buyerMTTATA: Account;
+  let sellerMTTATA: Account;
 
 
   before(async () => {
     console.log('Creating root account...');
     // Get root address
     root = await SolanaConfigService.getDefaultAccount();
+    console.log('Root account: ', root.publicKey.toBase58());
+
+    // Create user 2
+    user2 = anchor.web3.Keypair.generate();
+    console.log('User 2: ', user2.publicKey.toBase58());
+
+    // Airdrop to user 2
+    await connection.requestAirdrop(
+      user2.publicKey,
+      LAMPORTS_PER_SOL,
+    );
 
     // Create mint
     mint = await createMint(
@@ -215,6 +229,8 @@ describe("nft-collection", () => {
       9,
     );
     console.log('Mint account of MTT ', mintMTT.toBase58());
+
+
   })
 
   it('Init marketplace', async () => {
@@ -257,7 +273,7 @@ describe("nft-collection", () => {
   });
 
   it('List NFT to marketplace', async () => {
-    const listPrice = new BN(1000);
+    const listPrice = new BN(1000 * LAMPORTS_PER_SOL);
     [sellerTradeState, sellerTradeStateBump] = findProgramAddressSync(
       [
         Buffer.from("MARKETPLACE_LISTING"),
@@ -273,7 +289,7 @@ describe("nft-collection", () => {
 
     console.log('Seller trade state: ', sellerTradeState.toBase58());
 
-    [programAsSigner, delegateBump] = findProgramAddressSync(
+    [programAsSigner, programAsSignerBump] = findProgramAddressSync(
       [
         Buffer.from("MARKETPLACE"),
         Buffer.from("MARKETPLACE_SIGNER"),
@@ -294,12 +310,81 @@ describe("nft-collection", () => {
       TOKEN_PROGRAM_ID,
       SystemProgram.programId,
       NFT_MARKETPLACE_PROGRAM_ID,
-      new BN(1000),
+      listPrice,
       sellerTradeStateBump,
     );
 
     console.log('NFT listed to marketplace: ', listNftTx);
-  })
+  });
+
+  it("Buy NFT", async () => {
+    console.log('Buyer: ', user2.publicKey.toBase58());
+    console.log('Seller: ', root.publicKey.toBase58());
+    // Associated token account of buyer to store NFT
+    buyerNftATA = await getOrCreateAssociatedTokenAccount(
+      connection,
+      user2,
+      mint,
+      user2.publicKey,
+    );
+    console.log('User 2 NFT ATA created: ', buyerNftATA.address.toBase58());
+
+    // Associated token account of buyer to store money
+    buyerMTTATA = await getOrCreateAssociatedTokenAccount(
+      connection,
+      user2,
+      mintMTT,
+      user2.publicKey,
+    );
+    console.log('User 2 MTT ATA created: ', buyerMTTATA.address.toBase58());
+
+    const mintToTx = await mintTo(
+      connection,
+      ownerTokenMTT,
+      mintMTT,
+      buyerMTTATA.address,
+      ownerTokenMTT,
+      10000 * LAMPORTS_PER_SOL,
+    );
+    console.log('Minting second NFT done: ', mintToTx);
+
+    /// Associated token account of seller to store money
+    sellerMTTATA = await getOrCreateAssociatedTokenAccount(
+      connection,
+      root,
+      mintMTT,
+      root.publicKey,
+    );
+    console.log('User 2 MTT ATA created: ', sellerMTTATA.address.toBase58());
+
+    // Buy NFT
+    const buyNftTx = await NftMarketplaceService.buyNft(
+      connection,
+      user2,
+      root.publicKey,
+      buyerNftATA.address,
+      buyerMTTATA.address,
+      sellerMTTATA.address,
+      sellerTradeState,
+      mint,
+      marketplaceAccount,
+      rootATA.address,
+      mintMTT,
+      programAsSigner,
+      root.publicKey,
+      feeAccount,
+      TOKEN_PROGRAM_ID,
+      SystemProgram.programId,
+      NFT_MARKETPLACE_PROGRAM_ID,
+      new BN(1000 * LAMPORTS_PER_SOL),
+      programAsSignerBump,
+    );
+
+    console.log('NFT bought: ', buyNftTx);
+
+
+  });
+
 
 
   // it('Create second NFT', async () => {

@@ -182,3 +182,91 @@ pub struct ListingNftContext<'info> {
 
     pub system_program: Program<'info, System>,
 }
+
+
+#[derive(Accounts)]
+#[instruction(amount: u8)]
+pub struct ExecuteSaleContext<'info> {
+
+    /// CHECK: The public key of the buyer
+    #[account(mut)]
+    pub buyer: Signer<'info>,
+
+    /// CHECK: The public key of the seller listing NFT to marketplace
+    #[account(mut)]
+    pub seller: AccountInfo<'info>,
+
+    /// CHECK: Associated token account of buyer to store NFT
+    #[account(mut)]
+    pub buyer_nft_account: AccountInfo<'info>,
+
+    /// CHECK: Associated token account of buyer to store money
+    #[account(mut)]
+    pub buyer_token_account: AccountInfo<'info>,
+
+    /// CHECK: Associated token account of seller to store money
+    #[account(mut)]
+    pub seller_token_account: AccountInfo<'info>,
+
+    /// CHECK: Seller trade state account
+    #[account(
+        mut,
+        seeds = [
+            LISTING,
+            &seller.key().as_ref(),
+            &[amount],
+            mint_nft_account.key().as_ref(),
+            nft_marketplace_account.key().as_ref(),
+            nft_token_account.key().as_ref(),
+            token_mint_account.key().as_ref(),
+        ],
+        bump,
+    )]
+    pub seller_trade_state: Account<'info, SellerTradeState>,
+
+    /// CHECK: The public key of mint NFT being listing to marketplace
+    #[account(mut)]
+    pub mint_nft_account: AccountInfo<'info>,
+
+    /// CHECK: The public key of Marketplace account instance
+    #[account(
+        mut,
+        seeds = [MARKETPLACE, &authority.key().as_ref(), &token_mint_account.key().as_ref()],
+        bump,
+    )]
+    pub nft_marketplace_account: Account<'info, MarketplaceNFT>,
+
+    /// CHECK: The public key of associated token account of seller
+    #[account(mut)]
+    pub nft_token_account: AccountInfo<'info>,
+
+    /// CHECK: The mint address of the token to be used as the Marketplace currency
+    #[account(mut)]
+    pub token_mint_account: AccountInfo<'info>,
+
+    /// CHECK: Not dangerous. Account seeds checked in constraint.
+    #[account(
+        mut,
+        seeds=[MARKETPLACE, SIGNER],
+        bump
+    )]
+    pub program_as_signer: UncheckedAccount<'info>,
+
+    /// CHECK: Creator of marketplace instance
+    #[account(mut)]
+    pub authority: AccountInfo<'info>,
+
+    /// CHECK: Account to receive fees
+    #[account(
+        mut,
+        seeds = [MARKETPLACE_FEE, &authority.key().as_ref(), &token_mint_account.key().as_ref()],
+        bump,
+    )]
+    pub fee_account: AccountInfo<'info>,
+
+    /// CHECK: Token program ID (default = TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA)
+    pub token_program: AccountInfo<'info>,
+
+    pub system_program: Program<'info, System>,
+
+}
