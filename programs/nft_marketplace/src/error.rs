@@ -20,4 +20,8 @@ pub enum ErrorCode {
 
   #[msg("Token Mint account is not correct")]
   TokenMintAccountNotCorrect,
+
+  #[msg("Fee account is not owner")]
+  FeeAccountNotOwner,
+
 }

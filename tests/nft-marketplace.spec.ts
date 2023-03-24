@@ -46,6 +46,7 @@ describe("nft-collection", () => {
   let marketplaceBump: number;
   let feeAccount: PublicKey;
   let feeBump: number;
+  let feeATA: Account;
 
   // Delegate account
   let programAsSigner: anchor.web3.PublicKey;
@@ -74,6 +75,17 @@ describe("nft-collection", () => {
       user2.publicKey,
       LAMPORTS_PER_SOL,
     );
+
+    ownerTokenMTT = anchor.web3.Keypair.generate();
+    console.log('Owner Token ', ownerTokenMTT.publicKey.toBase58());
+
+      // Airdrop to user 2
+      const airdropSignature = await connection.requestAirdrop(
+        ownerTokenMTT.publicKey,
+        LAMPORTS_PER_SOL,
+      );
+
+      await connection.confirmTransaction(airdropSignature);
 
     // Create mint
     mint = await createMint(
@@ -210,16 +222,6 @@ describe("nft-collection", () => {
   });
 
   it('Create token currency and ATA for root and user 2', async () => {
-    ownerTokenMTT = anchor.web3.Keypair.generate();
-    console.log('Owner Token ', ownerTokenMTT.publicKey.toBase58());
-
-      // Airdrop to user 2
-      const airdropSignature = await connection.requestAirdrop(
-        ownerTokenMTT.publicKey,
-        LAMPORTS_PER_SOL,
-      );
-
-      await connection.confirmTransaction(airdropSignature);
 
       mintMTT = await createMint(
       connection,
@@ -245,27 +247,26 @@ describe("nft-collection", () => {
 
     console.log('Marketplace account: ', marketplaceAccount.toBase58());
 
-    [feeAccount, feeBump] = findProgramAddressSync(
-      [
-        Buffer.from("FEE"),
-        root.publicKey.toBuffer(),
-        mintMTT.toBuffer(),
-      ],
-      NFT_MARKETPLACE_PROGRAM_ID,
+    feeATA = await getOrCreateAssociatedTokenAccount(
+      connection,
+      root,
+      mintMTT,
+      root.publicKey,
+      true,
     );
 
-    console.log('Fee account: ', feeAccount.toBase58());
+    console.log('Fee account: ', feeATA.address.toBase58());
 
     const initMarketplaceTx = await NftMarketplaceService.initMarketplace(
       connection,
       marketplaceAccount,
       mintMTT,
-      feeAccount,
+      feeATA.address,
       root, // owner
       root, // payer
       SystemProgram.programId,
       NFT_MARKETPLACE_PROGRAM_ID,
-      0,
+      200,
       marketplaceBump,
       feeBump,
     );
@@ -306,6 +307,7 @@ describe("nft-collection", () => {
       marketplaceAccount,
       rootATA.address,
       mintMTT,
+      root.publicKey,
       programAsSigner,
       TOKEN_PROGRAM_ID,
       SystemProgram.programId,
@@ -372,7 +374,7 @@ describe("nft-collection", () => {
       mintMTT,
       programAsSigner,
       root.publicKey,
-      feeAccount,
+      feeATA.address,
       TOKEN_PROGRAM_ID,
       SystemProgram.programId,
       NFT_MARKETPLACE_PROGRAM_ID,

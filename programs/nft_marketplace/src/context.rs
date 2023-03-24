@@ -2,13 +2,16 @@ use anchor_lang::prelude::*;
 
 use crate::state::*;
 use crate::constant::*;
+use crate::error::ErrorCode::*;
 
-#[derive(Accounts)]
-pub struct HelloContext<'info> {
-
-  /// CHECK: For warning removal
-  pub owner: AccountInfo<'info>,
-}
+use crate::external::{
+    anchor_spl_token::{
+      TokenAccount,
+    },
+    spl_token::{
+      is_token_program
+    },
+  };
 
 #[derive(Accounts)]
 pub struct CreateMetadataAccountsContext<'info> {
@@ -105,16 +108,13 @@ pub struct InitMarketplaceContext<'info> {
     #[account(mut)]
     pub spl_token_mint: AccountInfo<'info>,
 
-
-    /// CHECK: Account to receive fees
+    /// CHECK: Associated token account for the fee account
     #[account(
-        init,
-        seeds = [MARKETPLACE_FEE, &owner.key().as_ref(), &spl_token_mint.key().as_ref()],
-        bump,
-        payer = payer,
-        space = 8,
+        mut,
+        constraint = fee_account.owner.to_string() == FEE_OWNER @FeeAccountNotOwner,
+        constraint = fee_account.mint.to_string() == spl_token_mint.key().to_string() @FeeAccountNotOwner,
     )]
-    pub fee_account: AccountInfo<'info>,
+    pub fee_account: Account<'info, TokenAccount>,
 
     /// CHECK: The public key of the Marketplace instance creator
     #[account(mut)]
@@ -158,7 +158,11 @@ pub struct ListingNftContext<'info> {
     pub mint_nft_account: AccountInfo<'info>,
 
     /// CHECK: The public key of Marketplace account instance
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds=[MARKETPLACE, &authority.key().as_ref(), &token_mint_account.key().as_ref()],
+        bump
+    )]
     pub nft_marketplace_account: AccountInfo<'info>,
 
     /// CHECK: The public key of NFT token account
@@ -168,6 +172,10 @@ pub struct ListingNftContext<'info> {
     /// CHECK: The mint address of the token to be used as the Marketplace currency
     #[account(mut)]
     pub token_mint_account: AccountInfo<'info>,
+
+    /// CHECK: The public key of the Marketplace instance creator
+    #[account(mut)]
+    pub authority: AccountInfo<'info>,
 
     /// CHECK: Not dangerous. Account seeds checked in constraint.
     #[account(
@@ -186,7 +194,7 @@ pub struct ListingNftContext<'info> {
 
 #[derive(Accounts)]
 #[instruction(amount: u8)]
-pub struct ExecuteSaleContext<'info> {
+pub struct BuyNftContext<'info> {
 
     /// CHECK: The public key of the buyer
     #[account(mut)]
@@ -256,17 +264,41 @@ pub struct ExecuteSaleContext<'info> {
     #[account(mut)]
     pub authority: AccountInfo<'info>,
 
-    /// CHECK: Account to receive fees
+    /// CHECK: Associated token account for the fee account
     #[account(
         mut,
-        seeds = [MARKETPLACE_FEE, &authority.key().as_ref(), &token_mint_account.key().as_ref()],
-        bump,
+        constraint = fee_account.owner.to_string() == FEE_OWNER @FeeAccountNotOwner,
+        constraint = fee_account.mint.to_string() == token_mint_account.key().to_string() @FeeAccountNotOwner,
     )]
-    pub fee_account: AccountInfo<'info>,
+    pub fee_account: Account<'info, TokenAccount>,
 
     /// CHECK: Token program ID (default = TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA)
     pub token_program: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
+
+}
+
+#[derive(Accounts)]
+pub struct WithdrawFromFeeAccountContext<'info> {
+
+    /// CHECK: Associated token account for the fee account
+    #[account(
+        mut,
+        constraint = fee_account.owner.to_string() == FEE_OWNER @FeeAccountNotOwner,
+        constraint = fee_account.mint.to_string() == token_mint_account.key().to_string() @FeeAccountNotOwner,
+    )]
+    pub fee_account: Account<'info, TokenAccount>,
+
+    /// CHECK: The public key of the Marketplace instance creator
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(mut)]
+    pub destination_account: AccountInfo<'info>,
+
+    /// CHECK: The mint address of the token to be used as the Marketplace currency
+    #[account(mut)]
+    pub token_mint_account: AccountInfo<'info>,
 
 }

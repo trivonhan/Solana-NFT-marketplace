@@ -212,7 +212,7 @@ mod nft_marketplace {
         ) -> Result<()> {
             let marketplace = &mut ctx.accounts.marketplace;
             let spl_token_mint = &ctx.accounts.spl_token_mint;
-            let fee_account = &ctx.accounts.fee_account;
+            let fee_account = & ctx.accounts.fee_account;
             let owner = &ctx.accounts.owner;
 
             marketplace.seller_fee_basis_points = seller_fee_basis_points;
@@ -279,7 +279,7 @@ mod nft_marketplace {
         Ok(())
     }
 
-    pub fn execute_sale(ctx: Context<ExecuteSaleContext>, amount: u64, _bump: u8) -> Result<()> {
+    pub fn execute_sale(ctx: Context<BuyNftContext>, amount: u64, _bump: u8) -> Result<()> {
         let buyer = &ctx.accounts.buyer;
         let seller = &ctx.accounts.seller;
         let buyer_nft_account = &ctx.accounts.buyer_nft_account;
@@ -291,9 +291,9 @@ mod nft_marketplace {
         let nft_token_account = &ctx.accounts.nft_token_account;
         let token_mint_account = &ctx.accounts.token_mint_account;
         let program_as_signer = &ctx.accounts.program_as_signer;
-        let authority = &ctx.accounts.authority;
-        let fee_account = &ctx.accounts.fee_account;
-        let token_program = &ctx.accounts.token_program;
+        // let authority = &ctx.accounts.authority;
+        let fee_account = &mut ctx.accounts.fee_account;
+        // let token_program = &ctx.accounts.token_program;
 
         require!(seller_trade_state.list_price == amount, ErrorCode::PriceNotCorrect);
         require!(seller_trade_state.seller == *seller.to_account_info().key, ErrorCode::SellerNotCorrect);
@@ -302,25 +302,7 @@ mod nft_marketplace {
         require!(seller_trade_state.nft_token_account == *nft_token_account.to_account_info().key, ErrorCode::NFTTokenAccountNotCorrect);
         require!(seller_trade_state.token_mint_account == *token_mint_account.to_account_info().key, ErrorCode::TokenMintAccountNotCorrect);
 
-        // let data = TransferTokenParams {
-        //     instruction: 3,
-        //     amount: 1,
-        // };
-
-        // let data = data.try_to_vec().unwrap();
-
-        // let accounts = vec![
-        //     AccountMeta::new(*nft_token_account.key, false),
-        //     AccountMeta::new(*buyer_nft_account.key, false),
-        //     AccountMeta::new(*program_as_signer.key, true),
-
-        // ];
-
-        // let instruction = Instruction {
-        //     program_id: *token_program.key,
-        //     accounts,
-        //     data,
-        // };
+        let fee = amount * nft_marketplace_account.seller_fee_basis_points as u64 / 10000;
 
         let seed : &[&[u8]] = &[
             b"MARKETPLACE".as_ref(),
@@ -328,6 +310,7 @@ mod nft_marketplace {
             &[_bump]
         ];
 
+        // Transfer NFT to buyer
         transfer_token(
             &program_as_signer,
             &nft_token_account,
@@ -336,25 +319,51 @@ mod nft_marketplace {
             &[seed],
         ).expect("CPI failed");
 
+        // Transfer token to seller
         transfer_token(
             &buyer,
             &buyer_token_account,
             &seller_token_account,
+            amount - fee,
+            &[]
+        ).expect("CPI failed");
+
+        msg!("DEBUG: fee {:?}", fee);
+
+        // Transfer fee to fee account
+        transfer_token(
+            &buyer,
+            &buyer_token_account,
+            &fee_account.to_account_info(),
+            fee,
+            &[]
+        ).expect("CPI failed");
+
+        // fee_account.amount += fee;
+
+        Ok(())
+
+    }
+
+    pub fn withdraw_fee(ctx: Context<WithdrawFromFeeAccountContext>, amount: u64) -> Result<()> {
+        let fee_account = &ctx.accounts.fee_account;
+        let owner = &ctx.accounts.owner;
+        let destination_account = &ctx.accounts.destination_account;
+
+        // Transfer fee to fee account
+        transfer_token(
+            &owner,
+            &fee_account.to_account_info(),
+            &destination_account.to_account_info(),
             amount,
             &[]
         ).expect("CPI failed");
 
-        // invoke_signed(&instruction, &[
-        //     nft_token_account.clone(),
-        //     buyer_nft_account.clone(),
-        //     program_as_signer.to_account_info().clone(),
-        //     token_program.clone(),
-        // ],
-        //     &[&seed],
-        // ).expect("CPI failed");
+        msg!("DEBUG: seed {:?}", amount);
+
+        // transfer_token(owner, from_pubkey, to_pubkey, amount, signer_seeds)
 
         Ok(())
-
     }
 
 
